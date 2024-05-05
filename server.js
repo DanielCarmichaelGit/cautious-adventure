@@ -14,6 +14,7 @@ const pool = new Pool({
   }
 });
 
+
 const defaultPageSize = 250;
 
 // Helper function to calculate the offset based on page number and page size
