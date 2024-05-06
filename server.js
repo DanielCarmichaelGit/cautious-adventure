@@ -359,6 +359,12 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
       }
       return `"${column}"`;
     });
+  
+    // Include yColumn in the GROUP BY clause if it's not already present
+    if (!xColumnsArray.includes(yColumn) && !yColumn.includes("count")) {
+      groupByColumns.push(`"${yColumn}"`);
+    }
+  
     query += ` GROUP BY ${groupByColumns.join(", ")}`;
   }
 
