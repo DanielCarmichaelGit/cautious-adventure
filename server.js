@@ -337,6 +337,27 @@ app.get('/api/custom-graph', authenticatePassword, (req, res) => {
     });
 });
 
+app.post("/api/authenticate", async (req, res) => {
+  const { password } = req.body;
+
+  if (password) {
+    let validation = password === process.env.PASSWORD;
+    if (validation) {
+      res.status(202).json({
+        message: "authorized"
+      })
+    } else {
+      res.status(403).json({
+        message: "unauthorized"
+      })
+    }
+  } else {
+    res.status(403).json({
+      message: "unauthorized"
+    })
+  }
+})
+
 // Implement other API routes similarly
 
 app.listen(port, () => {
