@@ -337,7 +337,7 @@ app.get('/api/custom-graph', authenticatePassword, (req, res) => {
     });
 });
 
-app.post("/api/authenticate", async (req, res) => {
+app.post("/api/authenticate", (req, res) => {
   console.log(req)
   const password = req.body.password;
   console.log(req.body); // Log the entire request body
