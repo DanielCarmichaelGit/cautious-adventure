@@ -367,7 +367,15 @@ app.get("/api/custom-graph-paginated", authenticatePassword, (req, res) => {
   const selectColumns = [yColumn, ...xColumnsArray];
 
   let query = `
-    SELECT ${selectColumns.map((column, index) => `"${column}" AS "${column}"`).join(", ")}
+    SELECT ${selectColumns.map((column, index) => {
+      if (column.includes("date")) {
+        return `TO_CHAR("${column}", 'YYYY-MM-DD') AS "${column}"`;
+      } else if (column.includes("datetime")) {
+        return `TO_CHAR("${column}", 'YYYY-MM-DD HH24:MI:SS') AS "${column}"`;
+      } else {
+        return `"${column}" AS "${column}"`;
+      }
+    }).join(", ")}
     FROM bet_transactions
   `;
   const params = [];
