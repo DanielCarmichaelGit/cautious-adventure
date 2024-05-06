@@ -317,13 +317,13 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
         .map((column) => {
           if (column.includes("date") || column.includes("datetime")) {
             if (groupBy === "week") {
-              return `DATE_TRUNC('week', "${column}") AS "${column}"`;
+              return `DATE_TRUNC('week', "${column}"::timestamp) AS "${column}"`;
             } else if (groupBy === "hour") {
-              return `DATE_TRUNC('hour', "${column}") AS "${column}"`;
+              return `DATE_TRUNC('hour', "${column}"::timestamp) AS "${column}"`;
             } else if (groupBy === "minute") {
-              return `DATE_TRUNC('minute', "${column}") AS "${column}"`;
+              return `DATE_TRUNC('minute', "${column}"::timestamp) AS "${column}"`;
             } else if (groupBy === "day") {
-              return `DATE_TRUNC('day', "${column}") AS "${column}"`;
+              return `DATE_TRUNC('day', "${column}"::timestamp) AS "${column}"`;
             }
           }
           return `"${column}"`;
@@ -345,22 +345,16 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
   }
 
   if (groupBy) {
-    query += ` GROUP BY ${xColumnsArray.map((column) => `"${column}"`).join(", ")}`;
+    query += ` GROUP BY ${xColumnsArray.map((column, index) => `${index + 1}`).join(", ")}`;
   }
 
-  query += ` ORDER BY ${xColumnsArray[0]} ASC`; // Order by the first X-axis column
+  query += ` ORDER BY 1 ASC`; // Order by the first X-axis column
   query += ` LIMIT 250`;
 
   pool
     .query(query, params)
     .then((result) => {
-      const data = result.rows.map((row) => {
-        const dataPoint = {};
-        selectColumns.forEach((column) => {
-          dataPoint[column] = row[column];
-        });
-        return dataPoint;
-      });
+      const data = result.rows;
       res.json(data);
     })
     .catch((err) => {
