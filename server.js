@@ -360,12 +360,14 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
       return `"${column}"`;
     });
   
-    // Include yColumn in the GROUP BY clause if it's not already present
-    if (!xColumnsArray.includes(yColumn) && !yColumn.includes("count")) {
-      groupByColumns.push(`"${yColumn}"`);
-    }
-  
     query += ` GROUP BY ${groupByColumns.join(", ")}`;
+  
+    // Aggregate the yColumn values
+    if (yColumn.includes("count")) {
+      query = query.replace(`COUNT(*) AS "${yColumn}"`, `SUM(COUNT(*)) AS "${yColumn}"`);
+    } else {
+      query = query.replace(`SUM("${yColumn}")`, `AVG("${yColumn}")`);
+    }
   }
 
   query += ` ORDER BY 1 ASC`;
