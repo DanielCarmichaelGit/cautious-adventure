@@ -345,10 +345,24 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
   }
 
   if (groupBy) {
-    query += ` GROUP BY ${xColumnsArray.map((column) => `"${column}"`).join(", ")}`;
+    const groupByColumns = xColumnsArray.map((column) => {
+      if (column.includes("date") || column.includes("datetime")) {
+        if (groupBy === "week") {
+          return `DATE_TRUNC('week', "${column}"::timestamp)`;
+        } else if (groupBy === "hour") {
+          return `DATE_TRUNC('hour', "${column}"::timestamp)`;
+        } else if (groupBy === "minute") {
+          return `DATE_TRUNC('minute', "${column}"::timestamp)`;
+        } else if (groupBy === "day") {
+          return `DATE_TRUNC('day', "${column}"::timestamp)`;
+        }
+      }
+      return `"${column}"`;
+    });
+    query += ` GROUP BY ${groupByColumns.join(", ")}`;
   }
 
-  query += ` ORDER BY 1 ASC`; // Order by the first X-axis column
+  query += ` ORDER BY 1 ASC`;
   query += ` LIMIT 250`;
 
   pool
