@@ -6,7 +6,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json())
+app.use(express.json());
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -16,12 +16,17 @@ const pool = new Pool({
 });
 
 const authenticatePassword = (req, res, next) => {
-  const providedPassword = req.query.password;
+  let providedPassword = "";
+  if (req.query.password) {
+    providedPassword = req.query.password;
+  } else {
+    providedPassword = req.body.password;
+  }
 
   if (providedPassword === process.env.PASSWORD) {
     next();
   } else {
-    res.status(401).json({ error: 'Invalid password' });
+    res.status(401).json({ error: "Invalid password" });
   }
 };
 
@@ -114,7 +119,8 @@ app.get("/api/sports", authenticatePassword, (req, res) => {
     GROUP BY sport_id, sport;
   `;
 
-  pool.query(query)
+  pool
+    .query(query)
     .then((result) => {
       const sports = result.rows.map((row) => ({
         sportId: row.sport_id,
@@ -128,7 +134,7 @@ app.get("/api/sports", authenticatePassword, (req, res) => {
     });
 });
 
-app.get('/api/sports-bets-overview', authenticatePassword, (req, res) => {
+app.get("/api/sports-bets-overview", authenticatePassword, (req, res) => {
   const query = `
     SELECT 
       sport_id, 
@@ -143,7 +149,8 @@ app.get('/api/sports-bets-overview', authenticatePassword, (req, res) => {
       sport;
   `;
 
-  pool.query(query)
+  pool
+    .query(query)
     .then((result) => {
       const sportsBets = result.rows.map((row) => ({
         sportId: row.sport_id,
@@ -155,14 +162,14 @@ app.get('/api/sports-bets-overview', authenticatePassword, (req, res) => {
       res.json(sportsBets);
     })
     .catch((err) => {
-      console.error('Error executing sports bets overview query:', err);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("Error executing sports bets overview query:", err);
+      res.status(500).json({ error: "Internal server error" });
     });
 });
 
-app.get('/api/bets-by-datetime-range', authenticatePassword, (req, res) => {
+app.get("/api/bets-by-datetime-range", authenticatePassword, (req, res) => {
   const { startDate, endDate, startTime, endTime } = req.query;
-  
+
   let query = `
     SELECT 
       bet_id_swish AS bet_id,
@@ -192,7 +199,8 @@ app.get('/api/bets-by-datetime-range', authenticatePassword, (req, res) => {
     params.push(endDate);
   }
 
-  pool.query(query, params)
+  pool
+    .query(query, params)
     .then((result) => {
       const bets = result.rows.map((row) => ({
         betId: row.bet_id,
@@ -205,12 +213,12 @@ app.get('/api/bets-by-datetime-range', authenticatePassword, (req, res) => {
       res.json(bets);
     })
     .catch((err) => {
-      console.error('Error executing bets by datetime range query:', err);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("Error executing bets by datetime range query:", err);
+      res.status(500).json({ error: "Internal server error" });
     });
 });
 
-app.get('/api/top-winning-players', authenticatePassword, (req, res) => {
+app.get("/api/top-winning-players", authenticatePassword, (req, res) => {
   const query = `
     SELECT 
       player_id,
@@ -227,7 +235,8 @@ app.get('/api/top-winning-players', authenticatePassword, (req, res) => {
     LIMIT 10;
   `;
 
-  pool.query(query)
+  pool
+    .query(query)
     .then((result) => {
       const topPlayers = result.rows.map((row) => ({
         playerId: row.player_id,
@@ -238,12 +247,12 @@ app.get('/api/top-winning-players', authenticatePassword, (req, res) => {
       res.json(topPlayers);
     })
     .catch((err) => {
-      console.error('Error executing top winning players query:', err);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("Error executing top winning players query:", err);
+      res.status(500).json({ error: "Internal server error" });
     });
 });
 
-app.get('/api/bet-type-distribution', authenticatePassword, (req, res) => {
+app.get("/api/bet-type-distribution", authenticatePassword, (req, res) => {
   const query = `
     SELECT 
       bet_type_id,
@@ -256,7 +265,8 @@ app.get('/api/bet-type-distribution', authenticatePassword, (req, res) => {
       bet_type;
   `;
 
-  pool.query(query)
+  pool
+    .query(query)
     .then((result) => {
       const betTypeCounts = result.rows.map((row) => ({
         betTypeId: row.bet_type_id,
@@ -266,44 +276,49 @@ app.get('/api/bet-type-distribution', authenticatePassword, (req, res) => {
       res.json(betTypeCounts);
     })
     .catch((err) => {
-      console.error('Error executing bet type distribution query:', err);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("Error executing bet type distribution query:", err);
+      res.status(500).json({ error: "Internal server error" });
     });
 });
 
-app.get('/api/graph-options', authenticatePassword, (req, res) => {
+app.get("/api/graph-options", authenticatePassword, (req, res) => {
   const query = `
     SELECT column_name
     FROM information_schema.columns
     WHERE table_name = 'bet_transactions'
   `;
 
-  pool.query(query)
+  pool
+    .query(query)
     .then((result) => {
       const columns = result.rows.map((row) => row.column_name);
-      const yOptions = columns.filter((column) => column !== 'date' && column !== 'datetime_utc');
-      const xOptions = columns.filter((column) => column !== 'date' && column !== 'datetime_utc');
+      const yOptions = columns.filter(
+        (column) => column !== "date" && column !== "datetime_utc"
+      );
+      const xOptions = columns.filter(
+        (column) => column !== "date" && column !== "datetime_utc"
+      );
       res.json({ yOptions, xOptions });
     })
     .catch((err) => {
-      console.error('Error executing graph options query:', err);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("Error executing graph options query:", err);
+      res.status(500).json({ error: "Internal server error" });
     });
 });
 
-app.get('/api/custom-graph', authenticatePassword, (req, res) => {
+app.get("/api/custom-graph", authenticatePassword, (req, res) => {
   const { yColumn, xColumns, startDate, startTime } = req.query;
 
   if (!yColumn || !xColumns) {
-    return res.status(400).json({ error: 'Missing required parameters' });
+    return res.status(400).json({ error: "Missing required parameters" });
   }
 
-  const xColumnsArray = xColumns.split(',');
+  const xColumnsArray = xColumns.split(",");
 
   const selectColumns = [yColumn, ...xColumnsArray];
   let query = `
     SELECT 
-      ${selectColumns.join(', ')}
+      ${selectColumns.join(", ")}
     FROM 
       bet_transactions
   `;
@@ -321,7 +336,8 @@ app.get('/api/custom-graph', authenticatePassword, (req, res) => {
     LIMIT 250
   `;
 
-  pool.query(query, params)
+  pool
+    .query(query, params)
     .then((result) => {
       const data = result.rows.map((row) => {
         const dataPoint = {};
@@ -333,17 +349,17 @@ app.get('/api/custom-graph', authenticatePassword, (req, res) => {
       res.json(data);
     })
     .catch((err) => {
-      console.error('Error executing custom graph query:', err);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("Error executing custom graph query:", err);
+      res.status(500).json({ error: "Internal server error" });
     });
 });
 
 app.post("/api/authenticate", (req, res) => {
-  console.log(req.body)
+  console.log(req.body);
   const password = req.body.password;
   console.log(req.body); // Log the entire request body
 
-  if (password && typeof password === 'string') {
+  if (password && typeof password === "string") {
     let validation = password === process.env.PASSWORD;
     if (validation) {
       res.status(202).json({ message: "authorized" });
