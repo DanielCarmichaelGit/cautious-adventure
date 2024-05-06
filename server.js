@@ -312,24 +312,23 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
   const selectColumns = [yColumn, ...xColumnsArray];
 
   let query = `
-    SELECT
-      ${xColumnsArray
-        .map((column) => {
+    SELECT 
+      ${selectColumns
+        .map((column, index) => {
           if (column.includes("date") || column.includes("datetime")) {
-            if (groupBy === "week") {
-              return `DATE_TRUNC('week', "${column}"::timestamp) AS "${column}"`;
-            } else if (groupBy === "hour") {
-              return `DATE_TRUNC('hour', "${column}"::timestamp) AS "${column}"`;
+            if (groupBy === "hour") {
+              return `DATE_TRUNC('hour', "${column}") AS "${column}"`;
             } else if (groupBy === "minute") {
-              return `DATE_TRUNC('minute', "${column}"::timestamp) AS "${column}"`;
+              return `DATE_TRUNC('minute', "${column}") AS "${column}"`;
             } else if (groupBy === "day") {
-              return `DATE_TRUNC('day', "${column}"::timestamp) AS "${column}"`;
+              return `DATE_TRUNC('day', "${column}") AS "${column}"`;
+            } else if (groupBy === "week") {
+              return `DATE_TRUNC('week', "${column}") AS "${column}"`;
             }
           }
-          return `"${column}"`;
+          return `"${column}" AS "${column}"`;
         })
-        .join(", ")},
-      ${yColumn.includes("count") ? `COUNT(*)` : `SUM("${yColumn}")`} AS "${yColumn}"
+        .join(", ")}
     FROM bet_transactions
   `;
 
@@ -345,32 +344,9 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
   }
 
   if (groupBy) {
-    const groupByColumns = xColumnsArray.map((column) => {
-      if (column.includes("date") || column.includes("datetime")) {
-        if (groupBy === "week") {
-          return `DATE_TRUNC('week', "${column}"::timestamp)`;
-        } else if (groupBy === "hour") {
-          return `DATE_TRUNC('hour', "${column}"::timestamp)`;
-        } else if (groupBy === "minute") {
-          return `DATE_TRUNC('minute', "${column}"::timestamp)`;
-        } else if (groupBy === "day") {
-          return `DATE_TRUNC('day', "${column}"::timestamp)`;
-        }
-      }
-      return `"${column}"`;
-    });
-  
-    query += ` GROUP BY ${groupByColumns.join(", ")}`;
-  
-    // Aggregate the yColumn values
-    if (yColumn.includes("count")) {
-      query = query.replace(`COUNT(*) AS "${yColumn}"`, `SUM(COUNT(*)) AS "${yColumn}"`);
-    } else {
-      query = query.replace(`SUM("${yColumn}")`, `AVG("${yColumn}")`);
-    }
+    query += ` GROUP BY ${selectColumns.map((column) => `"${column}"`).join(", ")}`;
   }
 
-  query += ` ORDER BY 1 ASC`;
   query += ` LIMIT 250`;
 
   pool
@@ -392,18 +368,8 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
 });
 
 app.get("/api/custom-graph-paginated", authenticatePassword, (req, res) => {
-  const {
-    yColumn,
-    xColumns,
-    startDate,
-    startTime,
-    endDate,
-    endTime,
-    page = 1,
-    pageSize = 250,
-    groupBy,
-  } = req.query;
-
+  const { yColumn, xColumns, startDate, startTime, endDate, endTime, page = 1, pageSize = 250 } = req.query;
+  
   if (!yColumn || !xColumns) {
     return res.status(400).json({ error: "Missing required parameters" });
   }
@@ -412,26 +378,17 @@ app.get("/api/custom-graph-paginated", authenticatePassword, (req, res) => {
   const selectColumns = [yColumn, ...xColumnsArray];
 
   let query = `
-    SELECT 
-      ${selectColumns
-        .map((column, index) => {
-          if (column.includes("date") || column.includes("datetime")) {
-            if (groupBy === "week") {
-              return `TO_CHAR(DATE_TRUNC('week', "${column}"), 'YYYY-MM-DD') AS "${column}"`;
-            } else if (groupBy === "hour") {
-              return `TO_CHAR(DATE_TRUNC('hour', "${column}"), 'YYYY-MM-DD HH24:00:00') AS "${column}"`;
-            } else if (groupBy === "minute") {
-              return `TO_CHAR(DATE_TRUNC('minute', "${column}"), 'YYYY-MM-DD HH24:MI:00') AS "${column}"`;
-            } else if (groupBy === "day") {
-              return `TO_CHAR(DATE_TRUNC('day', "${column}"), 'YYYY-MM-DD') AS "${column}"`;
-            }
-          }
-          return `"${column}" AS "${column}"`;
-        })
-        .join(", ")}
+    SELECT ${selectColumns.map((column, index) => {
+      if (column.includes("date")) {
+        return `TO_CHAR("${column}", 'YYYY-MM-DD') AS "${column}"`;
+      } else if (column.includes("datetime")) {
+        return `TO_CHAR("${column}", 'YYYY-MM-DD HH24:MI:SS') AS "${column}"`;
+      } else {
+        return `"${column}" AS "${column}"`;
+      }
+    }).join(", ")}
     FROM bet_transactions
   `;
-
   const params = [];
 
   if (startDate && startTime && endDate && endTime) {
@@ -443,52 +400,39 @@ app.get("/api/custom-graph-paginated", authenticatePassword, (req, res) => {
     params.push(`${startDate} ${startTime}`);
   }
 
-  if (groupBy) {
-    query += ` GROUP BY ${selectColumns
-      .map((column) => `"${column}"`)
-      .join(", ")}`;
+  const offset = (page - 1) * pageSize;
+  query += ` LIMIT ${pageSize} OFFSET ${offset}`;
 
-    if (groupBy === "week") {
-      query += `, DATE_TRUNC('week', accepted_datetime_utc)`;
-    }
-  }
-
-  query += ` ORDER BY ${selectColumns[0]} ASC`; // Order by the first selected column
-
-  const countQuery = `
-    SELECT COUNT(*) AS total
-    FROM (${query}) AS subquery
-  `;
-
-  pool.query(countQuery, params).then((countResult) => {
-    const totalCount = countResult.rows[0].total;
-    const totalPages = Math.ceil(totalCount / pageSize);
-
-    const offset = (page - 1) * pageSize;
-    query += ` LIMIT ${pageSize} OFFSET ${offset}`;
-
-    pool
-      .query(query, params)
-      .then((result) => {
-        const data = result.rows.map((row) => {
-          const dataPoint = {};
-          selectColumns.forEach((column) => {
-            dataPoint[column] = row[column];
-          });
-          return dataPoint;
+  pool
+    .query(query, params)
+    .then((result) => {
+      const data = result.rows.map((row) => {
+        const dataPoint = {};
+        selectColumns.forEach((column) => {
+          dataPoint[column] = row[column];
         });
+        return dataPoint;
+      });
+
+      const countQuery = `
+        SELECT COUNT(*) AS total
+        FROM bet_transactions
+      `;
+      pool.query(countQuery).then((countResult) => {
+        const totalCount = countResult.rows[0].total;
+        const totalPages = Math.ceil(totalCount / pageSize);
 
         res.json({
           data,
           currentPage: page,
           totalPages: totalPages,
         });
-      })
-      .catch((err) => {
-        console.error("Error executing custom graph query:", err);
-        res.status(500).json({ error: "Internal server error" });
       });
-  });
+    })
+    .catch((err) => {
+      console.error("Error executing custom graph query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
 });
 
 app.post("/api/authenticate", (req, res) => {
