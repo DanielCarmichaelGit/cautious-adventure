@@ -39,7 +39,7 @@ app.get("/api/time-series", (req, res) => {
     ORDER BY date
     LIMIT $4 OFFSET $5;
   `;
-  const values = [marketType, startDate, endDate, pageSize, offset, usageId];
+  const values = [marketType, startDate, endDate, pageSize, offset];
 
   pool.query(query, values, (err, result) => {
     if (err) {
@@ -52,7 +52,7 @@ app.get("/api/time-series", (req, res) => {
 });
 
 app.get("/api/sports", (req, res) => {
-  const { page = 1, pageSize = defaultPageSize, usageId } = req.query;
+  const { page = 1, pageSize = defaultPageSize } = req.query;
   const offset = getOffset(page, pageSize);
   const query = `
     SELECT DISTINCT sport
@@ -60,7 +60,7 @@ app.get("/api/sports", (req, res) => {
     WHERE usage_id = $3
     LIMIT $1 OFFSET $2;
   `;
-  const values = [pageSize, offset, usageId];
+  const values = [pageSize, offset];
 
   pool.query(query, values, (err, result) => {
     if (err) {
@@ -74,7 +74,7 @@ app.get("/api/sports", (req, res) => {
 });
 
 app.get("/api/stat-types", (req, res) => {
-  const { page = 1, pageSize = defaultPageSize, usageId } = req.query;
+  const { page = 1, pageSize = defaultPageSize } = req.query;
   const offset = getOffset(page, pageSize);
   const query = `
     SELECT DISTINCT stat_type
@@ -82,7 +82,7 @@ app.get("/api/stat-types", (req, res) => {
     WHERE usage_id = $3
     LIMIT $1 OFFSET $2;
   `;
-  const values = [pageSize, offset, usageId];
+  const values = [pageSize, offset];
 
   pool.query(query, values, (err, result) => {
     if (err) {
@@ -96,7 +96,7 @@ app.get("/api/stat-types", (req, res) => {
 });
 
 app.get("/api/dimensional-analysis", (req, res) => {
-  const { dimension, page = 1, pageSize = defaultPageSize, usageId } = req.query;
+  const { dimension, page = 1, pageSize = defaultPageSize } = req.query;
   const offset = getOffset(page, pageSize);
   const query = `
     SELECT ${dimension}, SUM(book_risk_component) AS bet_handle
@@ -106,7 +106,7 @@ app.get("/api/dimensional-analysis", (req, res) => {
     ORDER BY bet_handle DESC
     LIMIT $1 OFFSET $2;
   `;
-  const values = [pageSize, offset, usageId];
+  const values = [pageSize, offset];
 
   pool.query(query, values, (err, result) => {
     if (err) {
@@ -118,25 +118,23 @@ app.get("/api/dimensional-analysis", (req, res) => {
   });
 });
 
-app.get("/api/usage-id", (req, res) => {
+app.get("/api/sports", (req, res) => {
   const query = `
-    SELECT usage_id
+    SELECT sport_id, sport
     FROM bet_transactions
-    ORDER BY RANDOM()
-    LIMIT 1;
+    GROUP BY sport_id, sport;
   `;
 
   pool.query(query, (err, result) => {
     if (err) {
-      console.error("Error executing usage ID query:", err);
+      console.error("Error executing sports query:", err);
       res.status(500).json({ error: "Internal server error" });
     } else {
-      if (result.rows.length > 0) {
-        const usageId = result.rows[0].usage_id;
-        res.json({ usageId });
-      } else {
-        res.status(404).json({ error: "No usage IDs found" });
-      }
+      const sports = result.rows.map((row) => ({
+        sportId: row.sport_id,
+        sportName: row.sport,
+      }));
+      res.json(sports);
     }
   });
 });
