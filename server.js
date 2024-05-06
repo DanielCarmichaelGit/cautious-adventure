@@ -302,17 +302,23 @@ app.get("/api/graph-options", authenticatePassword, (req, res) => {
 });
 
 app.get("/api/custom-graph", authenticatePassword, (req, res) => {
-  const { yColumn, xColumns, startDate, startTime, endDate, endTime } = req.query;
+  const { yColumn, xColumns, startDate, startTime, endDate, endTime } =
+    req.query;
   if (!yColumn || !xColumns) {
     return res.status(400).json({ error: "Missing required parameters" });
   }
-
   const xColumnsArray = xColumns.split(",");
   const selectColumns = [yColumn, ...xColumnsArray];
+
   let query = `
-    SELECT ${selectColumns.join(", ")}
-    FROM bet_transactions
+    SELECT 
+      ${selectColumns
+        .map((column, index) => `"${column}" AS "${column}"`)
+        .join(", ")}
+    FROM 
+      bet_transactions
   `;
+
   const params = [];
 
   if (startDate && startTime && endDate && endTime) {
@@ -332,7 +338,8 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
     LIMIT 250
   `;
 
-  pool.query(query, params)
+  pool
+    .query(query, params)
     .then((result) => {
       const data = result.rows.map((row) => {
         const dataPoint = {};
