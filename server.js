@@ -18,7 +18,7 @@ const pool = new Pool({
 const authenticatePassword = (req, res, next) => {
   const providedPassword = req.query.password;
 
-  if (providedPassword === PASSWORD) {
+  if (providedPassword === process.env.PASSWORD) {
     next();
   } else {
     res.status(401).json({ error: 'Invalid password' });
