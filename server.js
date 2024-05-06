@@ -51,28 +51,6 @@ app.get("/api/time-series", (req, res) => {
   });
 });
 
-app.get("/api/sports", (req, res) => {
-  const { page = 1, pageSize = defaultPageSize } = req.query;
-  const offset = getOffset(page, pageSize);
-  const query = `
-    SELECT DISTINCT sport
-    FROM bet_transactions
-    WHERE usage_id = $3
-    LIMIT $1 OFFSET $2;
-  `;
-  const values = [pageSize, offset];
-
-  pool.query(query, values, (err, result) => {
-    if (err) {
-      console.error("Error executing sports query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    } else {
-      const sports = result.rows.map((row) => row.sport);
-      res.json(sports);
-    }
-  });
-});
-
 app.get("/api/stat-types", (req, res) => {
   const { page = 1, pageSize = defaultPageSize } = req.query;
   const offset = getOffset(page, pageSize);
