@@ -302,41 +302,52 @@ app.get("/api/graph-options", authenticatePassword, (req, res) => {
 });
 
 app.get("/api/custom-graph", authenticatePassword, (req, res) => {
-  const { yColumn, xColumns, startDate, startTime, endDate, endTime } =
-    req.query;
+  const { yColumn, xColumns, startDate, startTime, endDate, endTime, groupBy } = req.query;
+
   if (!yColumn || !xColumns) {
     return res.status(400).json({ error: "Missing required parameters" });
   }
+
   const xColumnsArray = xColumns.split(",");
   const selectColumns = [yColumn, ...xColumnsArray];
 
   let query = `
     SELECT 
       ${selectColumns
-        .map((column, index) => `"${column}" AS "${column}"`)
+        .map((column, index) => {
+          if (column.includes("date") || column.includes("datetime")) {
+            if (groupBy === "hour") {
+              return `DATE_TRUNC('hour', "${column}") AS "${column}"`;
+            } else if (groupBy === "minute") {
+              return `DATE_TRUNC('minute', "${column}") AS "${column}"`;
+            } else if (groupBy === "day") {
+              return `DATE_TRUNC('day', "${column}") AS "${column}"`;
+            } else if (groupBy === "week") {
+              return `DATE_TRUNC('week', "${column}") AS "${column}"`;
+            }
+          }
+          return `"${column}" AS "${column}"`;
+        })
         .join(", ")}
-    FROM 
-      bet_transactions
+    FROM bet_transactions
   `;
 
   const params = [];
 
   if (startDate && startTime && endDate && endTime) {
-    query += `
-      WHERE accepted_datetime_utc >= $1 AND accepted_datetime_utc <= $2
-    `;
+    query += ` WHERE accepted_datetime_utc >= $1 AND accepted_datetime_utc <= $2`;
     params.push(`${startDate} ${startTime}`);
     params.push(`${endDate} ${endTime}`);
   } else if (startDate && startTime) {
-    query += `
-      WHERE accepted_datetime_utc >= $1
-    `;
+    query += ` WHERE accepted_datetime_utc >= $1`;
     params.push(`${startDate} ${startTime}`);
   }
 
-  query += `
-    LIMIT 250
-  `;
+  if (groupBy) {
+    query += ` GROUP BY ${selectColumns.map((column) => `"${column}"`).join(", ")}`;
+  }
+
+  query += ` LIMIT 250`;
 
   pool
     .query(query, params)
