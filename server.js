@@ -27,18 +27,19 @@ app.get("/api/time-series", (req, res) => {
     endDate,
     page = 1,
     pageSize = defaultPageSize,
+    usageId,
   } = req.query;
   const offset = getOffset(page, pageSize);
   const query = `
     SELECT DATE_TRUNC('day', accepted_datetime_utc) AS date,
            SUM(book_risk_component) AS bet_handle
     FROM bet_transactions
-    WHERE market_type = $1 AND accepted_datetime_utc BETWEEN $2 AND $3
+    WHERE market_type = $1 AND accepted_datetime_utc BETWEEN $2 AND $3 AND client_id = $6
     GROUP BY DATE_TRUNC('day', accepted_datetime_utc)
     ORDER BY date
     LIMIT $4 OFFSET $5;
   `;
-  const values = [marketType, startDate, endDate, pageSize, offset];
+  const values = [marketType, startDate, endDate, pageSize, offset, usageId];
 
   pool.query(query, values, (err, result) => {
     if (err) {
@@ -51,14 +52,15 @@ app.get("/api/time-series", (req, res) => {
 });
 
 app.get("/api/sports", (req, res) => {
-  const { page = 1, pageSize = defaultPageSize } = req.query;
+  const { page = 1, pageSize = defaultPageSize, usageId } = req.query;
   const offset = getOffset(page, pageSize);
   const query = `
     SELECT DISTINCT sport
     FROM bet_transactions
+    WHERE usage_id = $3
     LIMIT $1 OFFSET $2;
   `;
-  const values = [pageSize, offset];
+  const values = [pageSize, offset, usageId];
 
   pool.query(query, values, (err, result) => {
     if (err) {
@@ -72,14 +74,15 @@ app.get("/api/sports", (req, res) => {
 });
 
 app.get("/api/stat-types", (req, res) => {
-  const { page = 1, pageSize = defaultPageSize } = req.query;
+  const { page = 1, pageSize = defaultPageSize, usageId } = req.query;
   const offset = getOffset(page, pageSize);
   const query = `
     SELECT DISTINCT stat_type
     FROM bet_transactions
+    WHERE usage_id = $3
     LIMIT $1 OFFSET $2;
   `;
-  const values = [pageSize, offset];
+  const values = [pageSize, offset, usageId];
 
   pool.query(query, values, (err, result) => {
     if (err) {
@@ -93,16 +96,17 @@ app.get("/api/stat-types", (req, res) => {
 });
 
 app.get("/api/dimensional-analysis", (req, res) => {
-  const { dimension, page = 1, pageSize = defaultPageSize } = req.query;
+  const { dimension, page = 1, pageSize = defaultPageSize, usageId } = req.query;
   const offset = getOffset(page, pageSize);
   const query = `
     SELECT ${dimension}, SUM(book_risk_component) AS bet_handle
     FROM bet_transactions
+    WHERE usage_id = $3
     GROUP BY ${dimension}
     ORDER BY bet_handle DESC
     LIMIT $1 OFFSET $2;
   `;
-  const values = [pageSize, offset];
+  const values = [pageSize, offset, usageId];
 
   pool.query(query, values, (err, result) => {
     if (err) {
@@ -114,9 +118,9 @@ app.get("/api/dimensional-analysis", (req, res) => {
   });
 });
 
-app.get("/api/client-id", (req, res) => {
+app.get("/api/usage-id", (req, res) => {
   const query = `
-    SELECT client_id
+    SELECT usage_id
     FROM bet_transactions
     ORDER BY RANDOM()
     LIMIT 1;
@@ -124,14 +128,14 @@ app.get("/api/client-id", (req, res) => {
 
   pool.query(query, (err, result) => {
     if (err) {
-      console.error("Error executing client ID query:", err);
+      console.error("Error executing usage ID query:", err);
       res.status(500).json({ error: "Internal server error" });
     } else {
       if (result.rows.length > 0) {
-        const clientId = result.rows[0].client_id;
-        res.json({ clientId });
+        const usageId = result.rows[0].usage_id;
+        res.json({ usageId });
       } else {
-        res.status(404).json({ error: "No client IDs found" });
+        res.status(404).json({ error: "No usage IDs found" });
       }
     }
   });
