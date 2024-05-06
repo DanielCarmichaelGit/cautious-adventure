@@ -125,18 +125,18 @@ app.get("/api/sports", (req, res) => {
     GROUP BY sport_id, sport;
   `;
 
-  pool.query(query, (err, result) => {
-    if (err) {
-      console.error("Error executing sports query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    } else {
+  pool.query(query)
+    .then((result) => {
       const sports = result.rows.map((row) => ({
         sportId: row.sport_id,
         sportName: row.sport,
       }));
       res.json(sports);
-    }
-  });
+    })
+    .catch((err) => {
+      console.error("Error executing sports query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
 });
 
 // Implement other API routes similarly
