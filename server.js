@@ -338,8 +338,8 @@ app.get('/api/custom-graph', authenticatePassword, (req, res) => {
 });
 
 app.post("/api/authenticate", async (req, res) => {
-  const { password } = req.body;
   console.log(req.body)
+  const { password } = req.body;
 
   if (password) {
     let validation = password === process.env.PASSWORD;
