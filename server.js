@@ -338,26 +338,21 @@ app.get('/api/custom-graph', authenticatePassword, (req, res) => {
 });
 
 app.post("/api/authenticate", async (req, res) => {
-  console.log(req.body)
-  const { password } = req.body;
+  console.log(req)
+  const password = req.body.password;
+  console.log(req.body); // Log the entire request body
 
-  if (password) {
+  if (password && typeof password === 'string') {
     let validation = password === process.env.PASSWORD;
     if (validation) {
-      res.status(202).json({
-        message: "authorized"
-      })
+      res.status(202).json({ message: "authorized" });
     } else {
-      res.status(403).json({
-        message: "unauthorized"
-      })
+      res.status(403).json({ message: "unauthorized" });
     }
   } else {
-    res.status(403).json({
-      message: "unauthorized"
-    })
+    res.status(403).json({ message: "unauthorized" });
   }
-})
+});
 
 // Implement other API routes similarly
 
