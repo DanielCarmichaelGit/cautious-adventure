@@ -16,12 +16,7 @@ const pool = new Pool({
 });
 
 const authenticatePassword = (req, res, next) => {
-  let providedPassword = "";
-  if (req.query.password) {
-    providedPassword = req.query.password;
-  } else {
-    providedPassword = req.body.password;
-  }
+  let providedPassword = req.header("Authorization");
 
   if (providedPassword === process.env.PASSWORD) {
     next();
