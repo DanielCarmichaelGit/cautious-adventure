@@ -316,14 +316,14 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
       ${selectColumns
         .map((column, index) => {
           if (column.includes("date") || column.includes("datetime")) {
-            if (groupBy === "hour") {
+            if (groupBy === "week") {
+              return `DATE_TRUNC('week', "${column}") AS "${column}"`;
+            } else if (groupBy === "hour") {
               return `DATE_TRUNC('hour', "${column}") AS "${column}"`;
             } else if (groupBy === "minute") {
               return `DATE_TRUNC('minute', "${column}") AS "${column}"`;
             } else if (groupBy === "day") {
               return `DATE_TRUNC('day', "${column}") AS "${column}"`;
-            } else if (groupBy === "week") {
-              return `DATE_TRUNC('week', "${column}") AS "${column}"`;
             }
           }
           return `"${column}" AS "${column}"`;
@@ -345,8 +345,13 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
 
   if (groupBy) {
     query += ` GROUP BY ${selectColumns.map((column) => `"${column}"`).join(", ")}`;
+
+    if (groupBy === "week") {
+      query += `, DATE_TRUNC('week', accepted_datetime_utc)`;
+    }
   }
 
+  query += ` ORDER BY ${selectColumns[0]} ASC`; // Order by the first selected column
   query += ` LIMIT 250`;
 
   pool
