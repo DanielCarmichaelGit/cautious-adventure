@@ -356,6 +356,66 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
     });
 });
 
+app.get("/api/custom-graph-paginated", authenticatePassword, (req, res) => {
+  const { yColumn, xColumns, startDate, startTime, endDate, endTime, page = 1, pageSize = 250 } = req.query;
+  
+  if (!yColumn || !xColumns) {
+    return res.status(400).json({ error: "Missing required parameters" });
+  }
+
+  const xColumnsArray = xColumns.split(",");
+  const selectColumns = [yColumn, ...xColumnsArray];
+
+  let query = `
+    SELECT ${selectColumns.map((column, index) => `"${column}" AS "${column}"`).join(", ")}
+    FROM bet_transactions
+  `;
+  const params = [];
+
+  if (startDate && startTime && endDate && endTime) {
+    query += ` WHERE accepted_datetime_utc >= $1 AND accepted_datetime_utc <= $2`;
+    params.push(`${startDate} ${startTime}`);
+    params.push(`${endDate} ${endTime}`);
+  } else if (startDate && startTime) {
+    query += ` WHERE accepted_datetime_utc >= $1`;
+    params.push(`${startDate} ${startTime}`);
+  }
+
+  const offset = (page - 1) * pageSize;
+  query += ` LIMIT ${pageSize} OFFSET ${offset}`;
+
+  pool
+    .query(query, params)
+    .then((result) => {
+      const data = result.rows.map((row) => {
+        const dataPoint = {};
+        selectColumns.forEach((column) => {
+          dataPoint[column] = row[column];
+        });
+        return dataPoint;
+      });
+
+      const countQuery = `
+        SELECT COUNT(*) AS total
+        FROM bet_transactions
+      `;
+      pool.query(countQuery).then((countResult) => {
+        const totalCount = countResult.rows[0].total;
+        const totalPages = Math.ceil(totalCount / pageSize);
+
+        res.json({
+          data,
+          currentPage: page,
+          totalPages: totalPages,
+        });
+      });
+    })
+    .catch((err) => {
+      console.error("Error executing custom graph query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+});
+
 app.post("/api/authenticate", (req, res) => {
   console.log(req.body);
   const password = req.body.password;
