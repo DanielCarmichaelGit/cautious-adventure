@@ -345,7 +345,7 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
   }
 
   if (groupBy) {
-    query += ` GROUP BY ${xColumnsArray.map((column, index) => `${index + 1}`).join(", ")}`;
+    query += ` GROUP BY ${xColumnsArray.map((column) => `"${column}"`).join(", ")}`;
   }
 
   query += ` ORDER BY 1 ASC`; // Order by the first X-axis column
@@ -354,7 +354,13 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
   pool
     .query(query, params)
     .then((result) => {
-      const data = result.rows;
+      const data = result.rows.map((row) => {
+        const dataPoint = {};
+        selectColumns.forEach((column) => {
+          dataPoint[column] = row[column];
+        });
+        return dataPoint;
+      });
       res.json(data);
     })
     .catch((err) => {
