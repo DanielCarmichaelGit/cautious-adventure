@@ -86,6 +86,28 @@ app.get(
   }
 );
 
+app.get("/api/inplay-vs-pregame-odds", authenticatePassword, (req, res) => {
+  const query = `
+    SELECT
+      CASE WHEN is_inplay = 1 THEN 'In-Play' ELSE 'Pre-Game' END AS bet_timing,
+      AVG(bet_price) AS avg_odds
+    FROM bet_transactions
+    GROUP BY bet_timing
+    LIMIT 250;
+  `;
+
+  pool
+    .query(query)
+    .then((result) => {
+      const betTimingOdds = result.rows;
+      res.json(betTimingOdds);
+    })
+    .catch((err) => {
+      console.error("Error executing in-play vs pre-game odds query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+});
+
 app.get("/api/bet-success-rate-by-team", authenticatePassword, (req, res) => {
   const query = `
     SELECT 
