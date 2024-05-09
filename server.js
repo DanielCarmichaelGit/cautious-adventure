@@ -110,6 +110,32 @@ app.get("/api/inplay-vs-pregame-odds", authenticatePassword, (req, res) => {
     });
 });
 
+app.get('/api/bet-data', authenticatePassword, (req, res) => {
+  const { query } = req.query;
+
+  if (!query) {
+    res.status(400).json({ error: 'Query parameter is required' });
+    return;
+  }
+
+  // Decode the URL-encoded query
+  const decodedQuery = decodeURIComponent(query);
+
+  // Sanitize the query to prevent SQL injection attacks
+  const sanitizedQuery = decodedQuery.replace(/[^a-zA-Z0-9_\s,*()=<>.-]/g, '');
+
+  pool
+    .query(sanitizedQuery)
+    .then((result) => {
+      const betData = result.rows;
+      res.json(betData);
+    })
+    .catch((err) => {
+      console.error('Error executing bet data query:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    });
+});
+
 app.get("/api/bet-success-rate-by-team", authenticatePassword, (req, res) => {
   const query = `
     SELECT 
