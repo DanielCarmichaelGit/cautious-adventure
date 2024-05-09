@@ -450,7 +450,98 @@ app.post("/api/authenticate", (req, res) => {
   }
 });
 
-// Implement other API routes similarly
+app.get("/api/profitable-players", authenticatePassword, (req, res) => {
+  const query = `
+    SELECT 
+      player_id,
+      player_name,
+      SUM(book_profit_gross) AS total_profit
+    FROM 
+      bet_transactions
+    GROUP BY 
+      player_id, 
+      player_name
+    ORDER BY 
+      total_profit DESC
+    LIMIT 10;
+  `;
+
+  pool
+    .query(query)
+    .then((result) => {
+      const profitablePlayers = result.rows.map((row) => ({
+        playerId: row.player_id,
+        playerName: row.player_name,
+        totalProfit: row.total_profit,
+      }));
+      res.json(profitablePlayers);
+    })
+    .catch((err) => {
+      console.error("Error executing profitable players query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+});
+
+app.get("/api/bet-handle-trends", authenticatePassword, (req, res) => {
+  const { startDate, endDate } = req.query;
+  const query = `
+    SELECT 
+      DATE_TRUNC('day', accepted_datetime_utc) AS date,
+      SUM(book_risk_component) AS bet_handle
+    FROM 
+      bet_transactions
+    WHERE 
+      accepted_datetime_utc BETWEEN $1 AND $2
+    GROUP BY 
+      DATE_TRUNC('day', accepted_datetime_utc)
+    ORDER BY 
+      date;
+  `;
+  const values = [startDate, endDate];
+
+  pool
+    .query(query, values)
+    .then((result) => {
+      const betHandleTrends = result.rows.map((row) => ({
+        date: row.date,
+        betHandle: row.bet_handle,
+      }));
+      res.json(betHandleTrends);
+    })
+    .catch((err) => {
+      console.error("Error executing bet handle trends query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+});
+
+app.get("/api/bet-handle-dimensions", authenticatePassword, (req, res) => {
+  const { dimension } = req.query;
+  const query = `
+    SELECT 
+      ${dimension},
+      SUM(book_risk_component) AS bet_handle
+    FROM 
+      bet_transactions
+    GROUP BY 
+      ${dimension}
+    ORDER BY 
+      bet_handle DESC;
+  `;
+
+  pool
+    .query(query)
+    .then((result) => {
+      const betHandleDimensions = result.rows.map((row) => ({
+        dimension: row[dimension],
+        betHandle: row.bet_handle,
+      }));
+      res.json(betHandleDimensions);
+    })
+    .catch((err) => {
+      console.error("Error executing bet handle dimensions query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+});
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
