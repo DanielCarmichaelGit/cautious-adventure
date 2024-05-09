@@ -250,7 +250,7 @@ app.get("/api/top-winning-players", authenticatePassword, (req, res) => {
 app.get("/api/clients", authenticatePassword, (req, res) => {
   const query = `
     SELECT DISTINCT client_id, client_name
-    FROM clients
+    FROM bet_transactions
     WHERE client_id IS NOT NULL
     ORDER BY client_name
     LIMIT 100;
