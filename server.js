@@ -312,15 +312,15 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
 
   let query = `SELECT ${selectColumns
     .map((column, index) => {
-      if (column.includes("date") || column.includes("datetime")) {
+      if (column === "date" || column === "datetime_utc" || column === "accepted_datetime_utc") {
         if (groupBy === "hour") {
-          return `DATE_TRUNC('hour', "${column}"::timestamp) AS "${column}"`;
+          return `DATE_TRUNC('hour', "${column}") AS "${column}"`;
         } else if (groupBy === "minute") {
-          return `DATE_TRUNC('minute', "${column}"::timestamp) AS "${column}"`;
+          return `DATE_TRUNC('minute', "${column}") AS "${column}"`;
         } else if (groupBy === "day") {
-          return `DATE_TRUNC('day', "${column}"::timestamp) AS "${column}"`;
+          return `DATE_TRUNC('day', "${column}") AS "${column}"`;
         } else if (groupBy === "week") {
-          return `DATE_TRUNC('week', "${column}"::timestamp) AS "${column}"`;
+          return `DATE_TRUNC('week', "${column}") AS "${column}"`;
         }
       }
       return `"${column}" AS "${column}"`;
@@ -340,7 +340,7 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
 
   if (groupBy) {
     query += ` GROUP BY ${selectColumns
-      .filter((column) => column.includes("date") || column.includes("datetime"))
+      .filter((column) => column === "date" || column === "datetime_utc" || column === "accepted_datetime_utc")
       .map((column) => `"${column}"`)
       .join(", ")}`;
   }
