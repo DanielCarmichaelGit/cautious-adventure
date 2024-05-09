@@ -277,7 +277,7 @@ app.get("/api/client-weekly-totals", authenticatePassword, (req, res) => {
   const query = `
     SELECT 
       DATE_TRUNC('week', datetime_utc) AS week,
-      SUM(bet_amount) AS total
+      SUM(bet_price) AS total
     FROM bet_transactions
     WHERE client_id = $1
     GROUP BY week
