@@ -303,7 +303,6 @@ app.get("/api/graph-options", authenticatePassword, (req, res) => {
 
 app.get("/api/custom-graph", authenticatePassword, (req, res) => {
   const { yColumn, xColumns, startDate, startTime, endDate, endTime, groupBy } = req.query;
-
   if (!yColumn || !xColumns) {
     return res.status(400).json({ error: "Missing required parameters" });
   }
@@ -311,26 +310,22 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
   const xColumnsArray = xColumns.split(",");
   const selectColumns = [yColumn, ...xColumnsArray];
 
-  let query = `
-    SELECT 
-      ${selectColumns
-        .map((column, index) => {
-          if (column.includes("date") || column.includes("datetime")) {
-            if (groupBy === "hour") {
-              return `DATE_TRUNC('hour', "${column}") AS "${column}"`;
-            } else if (groupBy === "minute") {
-              return `DATE_TRUNC('minute', "${column}") AS "${column}"`;
-            } else if (groupBy === "day") {
-              return `DATE_TRUNC('day', "${column}") AS "${column}"`;
-            } else if (groupBy === "week") {
-              return `DATE_TRUNC('week', "${column}") AS "${column}"`;
-            }
-          }
-          return `"${column}" AS "${column}"`;
-        })
-        .join(", ")}
-    FROM bet_transactions
-  `;
+  let query = `SELECT ${selectColumns
+    .map((column, index) => {
+      if (column.includes("date") || column.includes("datetime")) {
+        if (groupBy === "hour") {
+          return `DATE_TRUNC('hour', "${column}"::timestamp) AS "${column}"`;
+        } else if (groupBy === "minute") {
+          return `DATE_TRUNC('minute', "${column}"::timestamp) AS "${column}"`;
+        } else if (groupBy === "day") {
+          return `DATE_TRUNC('day', "${column}"::timestamp) AS "${column}"`;
+        } else if (groupBy === "week") {
+          return `DATE_TRUNC('week', "${column}"::timestamp) AS "${column}"`;
+        }
+      }
+      return `"${column}" AS "${column}"`;
+    })
+    .join(", ")} FROM bet_transactions`;
 
   const params = [];
 
@@ -344,7 +339,10 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
   }
 
   if (groupBy) {
-    query += ` GROUP BY ${selectColumns.map((column) => `"${column}"`).join(", ")}`;
+    query += ` GROUP BY ${selectColumns
+      .filter((column) => column.includes("date") || column.includes("datetime"))
+      .map((column) => `"${column}"`)
+      .join(", ")}`;
   }
 
   query += ` LIMIT 250`;
