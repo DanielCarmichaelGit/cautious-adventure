@@ -201,6 +201,30 @@ app.get(
   }
 );
 
+app.get("/api/player-odds", authenticatePassword, (req, res) => {
+  const query = `
+    SELECT 
+      player_name,
+      pos_abbr AS position,
+      team_abbr AS team,
+      SUM(book_profit_gross) * 100.0 / SUM(book_risk) AS profit_percentage,
+      AVG(bet_price) AS avg_odds
+    FROM bet_transactions
+    GROUP BY player_name, pos_abbr, team_abbr;
+  `;
+
+  pool
+    .query(query)
+    .then((result) => {
+      const playerOdds = result.rows;
+      res.json(playerOdds);
+    })
+    .catch((err) => {
+      console.error("Error executing player odds query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+});
+
 app.get("/api/profitability-by-position", authenticatePassword, (req, res) => {
   const query = `
     SELECT 
