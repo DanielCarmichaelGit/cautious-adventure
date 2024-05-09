@@ -252,7 +252,8 @@ app.get("/api/clients", authenticatePassword, (req, res) => {
     SELECT client_id, client_name
     FROM bet_transactions
     WHERE client_id IS NOT NULL
-    ORDER BY client_name;
+    ORDER BY client_name
+    LIMIT 100;
   `;
 
   pool
