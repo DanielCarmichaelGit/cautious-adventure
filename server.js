@@ -30,223 +30,6 @@ const defaultPageSize = 250;
 // Helper function to calculate the offset based on page number and page size
 const getOffset = (page, pageSize) => (page - 1) * pageSize;
 
-// Define your API routes here
-app.get("/api/time-series", authenticatePassword, (req, res) => {
-  const {
-    marketType,
-    startDate,
-    endDate,
-    page = 1,
-    pageSize = defaultPageSize,
-    usageId,
-  } = req.query;
-  const offset = getOffset(page, pageSize);
-  const query = `
-    SELECT DATE_TRUNC('day', accepted_datetime_utc) AS date,
-           SUM(book_risk_component) AS bet_handle
-    FROM bet_transactions
-    WHERE market_type = $1 AND accepted_datetime_utc BETWEEN $2 AND $3 AND client_id = $6
-    GROUP BY DATE_TRUNC('day', accepted_datetime_utc)
-    ORDER BY date
-    LIMIT $4 OFFSET $5;
-  `;
-  const values = [marketType, startDate, endDate, pageSize, offset];
-
-  pool.query(query, values, (err, result) => {
-    if (err) {
-      console.error("Error executing query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    } else {
-      res.json(result.rows);
-    }
-  });
-});
-
-app.get("/api/stat-types", authenticatePassword, (req, res) => {
-  const { page = 1, pageSize = defaultPageSize } = req.query;
-  const offset = getOffset(page, pageSize);
-  const query = `
-    SELECT DISTINCT stat_type
-    FROM bet_transactions
-    WHERE usage_id = $3
-    LIMIT $1 OFFSET $2;
-  `;
-  const values = [pageSize, offset];
-
-  pool.query(query, values, (err, result) => {
-    if (err) {
-      console.error("Error executing stat types query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    } else {
-      const statTypes = result.rows.map((row) => row.stat_type);
-      res.json(statTypes);
-    }
-  });
-});
-
-app.get("/api/dimensional-analysis", authenticatePassword, (req, res) => {
-  const { dimension, page = 1, pageSize = defaultPageSize } = req.query;
-  const offset = getOffset(page, pageSize);
-  const query = `
-    SELECT ${dimension}, SUM(book_risk_component) AS bet_handle
-    FROM bet_transactions
-    WHERE usage_id = $3
-    GROUP BY ${dimension}
-    ORDER BY bet_handle DESC
-    LIMIT $1 OFFSET $2;
-  `;
-  const values = [pageSize, offset];
-
-  pool.query(query, values, (err, result) => {
-    if (err) {
-      console.error("Error executing dimensional analysis query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    } else {
-      res.json(result.rows);
-    }
-  });
-});
-
-app.get("/api/sports", authenticatePassword, (req, res) => {
-  const query = `
-    SELECT sport_id, sport
-    FROM bet_transactions
-    GROUP BY sport_id, sport;
-  `;
-
-  pool
-    .query(query)
-    .then((result) => {
-      const sports = result.rows.map((row) => ({
-        sportId: row.sport_id,
-        sportName: row.sport,
-      }));
-      res.json(sports);
-    })
-    .catch((err) => {
-      console.error("Error executing sports query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    });
-});
-
-app.get("/api/sports-bets-overview", authenticatePassword, (req, res) => {
-  const query = `
-    SELECT 
-      sport_id, 
-      sport,
-      COUNT(*) AS total_bets,
-      SUM(book_risk) AS total_book_risk,
-      SUM(book_profit_gross) AS total_book_profit_gross
-    FROM 
-      bet_transactions
-    GROUP BY 
-      sport_id, 
-      sport;
-  `;
-
-  pool
-    .query(query)
-    .then((result) => {
-      const sportsBets = result.rows.map((row) => ({
-        sportId: row.sport_id,
-        sportName: row.sport,
-        totalBets: row.total_bets,
-        totalBookRisk: row.total_book_risk,
-        totalBookProfitGross: row.total_book_profit_gross,
-      }));
-      res.json(sportsBets);
-    })
-    .catch((err) => {
-      console.error("Error executing sports bets overview query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    });
-});
-
-app.get("/api/bets-by-datetime-range", authenticatePassword, (req, res) => {
-  const { startDate, endDate, startTime, endTime } = req.query;
-
-  let query = `
-    SELECT 
-      bet_id_swish AS bet_id,
-      sport,
-      event_id,
-      selection,
-      bet_price,
-      accepted_datetime_utc
-    FROM 
-      bet_transactions
-  `;
-  const params = [];
-
-  if (startDate && endDate && startTime && endTime) {
-    query += `
-      WHERE 
-        accepted_datetime_utc >= $1 AND accepted_datetime_utc <= $2
-    `;
-    params.push(`${startDate} ${startTime}`);
-    params.push(`${endDate} ${endTime}`);
-  } else if (startDate && endDate) {
-    query += `
-      WHERE 
-        date >= $1 AND date <= $2
-    `;
-    params.push(startDate);
-    params.push(endDate);
-  }
-
-  pool
-    .query(query, params)
-    .then((result) => {
-      const bets = result.rows.map((row) => ({
-        betId: row.bet_id,
-        sportName: row.sport,
-        eventId: row.event_id,
-        selection: row.selection,
-        betPrice: row.bet_price,
-        acceptedDatetime: row.accepted_datetime_utc,
-      }));
-      res.json(bets);
-    })
-    .catch((err) => {
-      console.error("Error executing bets by datetime range query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    });
-});
-
-app.get("/api/top-winning-players", authenticatePassword, (req, res) => {
-  const query = `
-    SELECT 
-      player_id,
-      player_name,
-      COUNT(*) AS total_bets,
-      SUM(book_profit_gross) AS total_profit
-    FROM 
-      bet_transactions
-    GROUP BY 
-      player_id, 
-      player_name
-    ORDER BY 
-      total_profit DESC
-    LIMIT 10;
-  `;
-
-  pool
-    .query(query)
-    .then((result) => {
-      const topPlayers = result.rows.map((row) => ({
-        playerId: row.player_id,
-        playerName: row.player_name,
-        totalBets: row.total_bets,
-        totalProfit: row.total_profit,
-      }));
-      res.status(200).json(topPlayers);
-    })
-    .catch((err) => {
-      console.error("Error executing top winning players query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    });
-});
-
 app.get("/api/clients", authenticatePassword, (req, res) => {
   const query = `
     SELECT DISTINCT client_id, client_name
@@ -271,241 +54,128 @@ app.get("/api/clients", authenticatePassword, (req, res) => {
     });
 });
 
-app.get("/api/client-weekly-totals", authenticatePassword, (req, res) => {
-  const { clientId } = req.query;
-
-  const query = `
-    SELECT 
-      DATE_TRUNC('week', datetime_utc) AS week,
-      SUM(bet_price) AS total
+app.get(
+  "/api/inplay-vs-pregame-performance",
+  authenticatePassword,
+  (req, res) => {
+    const query = `
+    SELECT
+      CASE WHEN is_inplay = 1 THEN 'In-Play' ELSE 'Pre-Game' END AS bet_timing,
+      COUNT(*) AS total_bets,
+      COUNT(CASE WHEN book_profit_gross > 0 THEN 1 END) * 100.0 / COUNT(*) AS win_rate,
+      AVG(bet_price) AS avg_odds,
+      SUM(book_profit_gross) * 100.0 / SUM(book_risk) AS roi
     FROM bet_transactions
-    WHERE client_id = $1
-    GROUP BY week
-    ORDER BY week
-    LIMIT 16;
+    GROUP BY bet_timing
+    LIMIT 250;
   `;
 
-  pool
-    .query(query, [clientId])
-    .then((result) => {
-      const weeklyTotals = result.rows.map((row) => ({
-        week: row.week,
-        total: parseFloat(row.total),
-      }));
-      res.json(weeklyTotals);
-    })
-    .catch((err) => {
-      console.error("Error executing client weekly totals query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    });
-});
-
-app.get("/api/bet-type-distribution", authenticatePassword, (req, res) => {
-  const query = `
-    SELECT 
-      bet_type_id,
-      bet_type,
-      COUNT(*) AS count
-    FROM 
-      bet_transactions
-    GROUP BY 
-      bet_type_id, 
-      bet_type;
-  `;
-
-  pool
-    .query(query)
-    .then((result) => {
-      const betTypeCounts = result.rows.map((row) => ({
-        betTypeId: row.bet_type_id,
-        betType: row.bet_type,
-        count: row.count,
-      }));
-      res.json(betTypeCounts);
-    })
-    .catch((err) => {
-      console.error("Error executing bet type distribution query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    });
-});
-
-app.get("/api/graph-options", authenticatePassword, (req, res) => {
-  const query = `
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_name = 'bet_transactions'
-  `;
-
-  pool
-    .query(query)
-    .then((result) => {
-      const columns = result.rows.map((row) => row.column_name);
-      const yOptions = columns.filter(
-        (column) => column !== "date" && column !== "datetime_utc"
-      );
-      const xOptions = columns.filter(
-        (column) => column !== "date" && column !== "datetime_utc"
-      );
-      res.json({ yOptions, xOptions });
-    })
-    .catch((err) => {
-      console.error("Error executing graph options query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    });
-});
-
-app.get("/api/custom-graph", authenticatePassword, (req, res) => {
-  const { yColumn, xColumns, startDate, startTime, endDate, endTime, groupBy } =
-    req.query;
-  if (!yColumn || !xColumns) {
-    return res.status(400).json({ error: "Missing required parameters" });
-  }
-
-  const xColumnsArray = xColumns.split(",");
-  const selectColumns = [yColumn, ...xColumnsArray];
-
-  let query = `SELECT ${selectColumns
-    .map((column, index) => {
-      if (
-        column === "date" ||
-        column === "datetime_utc" ||
-        column === "accepted_datetime_utc"
-      ) {
-        if (groupBy === "hour") {
-          return `DATE_TRUNC('hour', "${column}") AS "${column}"`;
-        } else if (groupBy === "minute") {
-          return `DATE_TRUNC('minute', "${column}") AS "${column}"`;
-        } else if (groupBy === "day") {
-          return `DATE_TRUNC('day', "${column}") AS "${column}"`;
-        } else if (groupBy === "week") {
-          return `DATE_TRUNC('week', "${column}") AS "${column}"`;
-        }
-      }
-      return `"${column}" AS "${column}"`;
-    })
-    .join(", ")} FROM bet_transactions`;
-
-  const params = [];
-
-  if (startDate && startTime && endDate && endTime) {
-    query += ` WHERE accepted_datetime_utc >= $1 AND accepted_datetime_utc <= $2`;
-    params.push(`${startDate} ${startTime}`);
-    params.push(`${endDate} ${endTime}`);
-  } else if (startDate && startTime) {
-    query += ` WHERE accepted_datetime_utc >= $1`;
-    params.push(`${startDate} ${startTime}`);
-  }
-
-  if (groupBy) {
-    query += ` GROUP BY ${selectColumns
-      .filter(
-        (column) =>
-          column === "date" ||
-          column === "datetime_utc" ||
-          column === "accepted_datetime_utc"
-      )
-      .map((column) => `"${column}"`)
-      .join(", ")}`;
-  }
-
-  query += ` LIMIT 250`;
-
-  pool
-    .query(query, params)
-    .then((result) => {
-      const data = result.rows.map((row) => {
-        const dataPoint = {};
-        selectColumns.forEach((column) => {
-          dataPoint[column] = row[column];
-        });
-        return dataPoint;
-      });
-      res.json(data);
-    })
-    .catch((err) => {
-      console.error("Error executing custom graph query:", err);
-      res.status(500).json({ error: "Internal server error" });
-    });
-});
-
-app.get("/api/custom-graph-paginated", authenticatePassword, (req, res) => {
-  const {
-    yColumn,
-    xColumns,
-    startDate,
-    startTime,
-    endDate,
-    endTime,
-    page = 1,
-    pageSize = 250,
-  } = req.query;
-
-  if (!yColumn || !xColumns) {
-    return res.status(400).json({ error: "Missing required parameters" });
-  }
-
-  const xColumnsArray = xColumns.split(",");
-  const selectColumns = [yColumn, ...xColumnsArray];
-
-  let query = `
-    SELECT ${selectColumns
-      .map((column, index) => {
-        if (column.includes("date")) {
-          return `TO_CHAR("${column}", 'YYYY-MM-DD') AS "${column}"`;
-        } else if (column.includes("datetime")) {
-          return `TO_CHAR("${column}", 'YYYY-MM-DD HH24:MI:SS') AS "${column}"`;
-        } else {
-          return `"${column}" AS "${column}"`;
-        }
+    pool
+      .query(query)
+      .then((result) => {
+        const betTimingPerformance = result.rows;
+        res.json(betTimingPerformance);
       })
-      .join(", ")}
-    FROM bet_transactions
-  `;
-  const params = [];
-
-  if (startDate && startTime && endDate && endTime) {
-    query += ` WHERE accepted_datetime_utc >= $1 AND accepted_datetime_utc <= $2`;
-    params.push(`${startDate} ${startTime}`);
-    params.push(`${endDate} ${endTime}`);
-  } else if (startDate && startTime) {
-    query += ` WHERE accepted_datetime_utc >= $1`;
-    params.push(`${startDate} ${startTime}`);
+      .catch((err) => {
+        console.error(
+          "Error executing in-play vs pre-game performance query:",
+          err
+        );
+        res.status(500).json({ error: "Internal server error" });
+      });
   }
+);
 
-  const offset = (page - 1) * pageSize;
-  query += ` LIMIT ${pageSize} OFFSET ${offset}`;
+app.get("/api/bet-success-rate-by-team", authenticatePassword, (req, res) => {
+  const query = `
+    SELECT 
+      team_abbr,
+      COUNT(*) AS total_bets,
+      COUNT(CASE WHEN book_profit_gross > 0 THEN 1 END) AS successful_bets,
+      COUNT(CASE WHEN book_profit_gross > 0 THEN 1 END) * 100.0 / COUNT(*) AS success_rate
+    FROM bet_transactions
+    GROUP BY team_abbr
+    ORDER BY success_rate DESC;
+  `;
 
   pool
-    .query(query, params)
+    .query(query)
     .then((result) => {
-      const data = result.rows.map((row) => {
-        const dataPoint = {};
-        selectColumns.forEach((column) => {
-          dataPoint[column] = row[column];
-        });
-        return dataPoint;
-      });
-
-      const countQuery = `
-        SELECT COUNT(*) AS total
-        FROM bet_transactions
-      `;
-      pool.query(countQuery).then((countResult) => {
-        const totalCount = countResult.rows[0].total;
-        const totalPages = Math.ceil(totalCount / pageSize);
-
-        res.json({
-          data,
-          currentPage: page,
-          totalPages: totalPages,
-        });
-      });
+      const teamSuccessRates = result.rows;
+      res.json(teamSuccessRates);
     })
     .catch((err) => {
-      console.error("Error executing custom graph query:", err);
+      console.error("Error executing bet success rate by team query:", err);
       res.status(500).json({ error: "Internal server error" });
     });
 });
+
+app.get(
+  "/api/bet-performance-by-line-movement",
+  authenticatePassword,
+  (req, res) => {
+    const query = `
+    SELECT
+      CASE
+        WHEN line_diff_at_bet < -5 THEN 'Large Decrease'
+        WHEN line_diff_at_bet >= -5 AND line_diff_at_bet < -1 THEN 'Small Decrease'
+        WHEN line_diff_at_bet >= -1 AND line_diff_at_bet <= 1 THEN 'No Significant Change'
+        WHEN line_diff_at_bet > 1 AND line_diff_at_bet <= 5 THEN 'Small Increase'
+        ELSE 'Large Increase'
+      END AS line_movement,
+      COUNT(*) AS total_bets,
+      COUNT(CASE WHEN book_profit_gross > 0 THEN 1 END) * 100.0 / COUNT(*) AS win_rate,
+      AVG(book_profit_gross) AS avg_profit
+    FROM bet_transactions
+    GROUP BY line_movement;
+  `;
+
+    pool
+      .query(query)
+      .then((result) => {
+        const lineMovementPerformance = result.rows;
+        res.json(lineMovementPerformance);
+      })
+      .catch((err) => {
+        console.error(
+          "Error executing bet performance by line movement query:",
+          err
+        );
+        res.status(500).json({ error: "Internal server error" });
+      });
+  }
+);
+
+app.get(
+  "/api/bet-profitability-by-stat-type",
+  authenticatePassword,
+  (req, res) => {
+    const query = `
+    SELECT
+      stat_type,
+      SUM(book_risk) AS total_handle,
+      SUM(book_profit_gross) AS total_profit,
+      SUM(book_profit_gross) * 100.0 / SUM(book_risk) AS roi
+    FROM bet_transactions
+    GROUP BY stat_type
+    ORDER BY roi DESC;
+  `;
+
+    pool
+      .query(query)
+      .then((result) => {
+        const statTypeProfitability = result.rows;
+        res.json(statTypeProfitability);
+      })
+      .catch((err) => {
+        console.error(
+          "Error executing bet profitability by stat type query:",
+          err
+        );
+        res.status(500).json({ error: "Internal server error" });
+      });
+  }
+);
 
 app.post("/api/authenticate", (req, res) => {
   console.log(req.body);
