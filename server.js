@@ -201,6 +201,70 @@ app.get(
   }
 );
 
+app.get('/api/bet-handle-trends', authenticatePassword, (req, res) => {
+  const { market, startDate, endDate } = req.query;
+
+  const query = `
+    SELECT 
+      DATE_TRUNC('day', accepted_datetime_utc) AS date,
+      SUM(book_risk) AS total_bet_handle
+    FROM bet_transactions
+    WHERE product = $1 AND accepted_datetime_utc BETWEEN $2 AND $3
+    GROUP BY date
+    ORDER BY date;
+  `;
+
+  const values = [market, startDate, endDate];
+
+  pool
+    .query(query, values)
+    .then((result) => {
+      const betHandleTrends = result.rows;
+      res.json(betHandleTrends);
+    })
+    .catch((err) => {
+      console.error('Error executing bet handle trends query:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    });
+});
+
+app.get('/api/bet-handle-performance', authenticatePassword, (req, res) => {
+  const { dimensions, filters } = req.query;
+
+  let query = `
+    SELECT 
+      ${dimensions.join(', ')},
+      SUM(book_risk) AS total_bet_handle
+    FROM bet_transactions
+  `;
+
+  const values = [];
+
+  if (filters && Object.keys(filters).length > 0) {
+    const conditions = Object.entries(filters)
+      .map(([key, value]) => {
+        values.push(value);
+        return `${key} = $${values.length}`;
+      })
+      .join(' AND ');
+
+    query += ` WHERE ${conditions}`;
+  }
+
+  query += ` GROUP BY ${dimensions.join(', ')}`;
+
+  pool
+    .query(query, values)
+    .then((result) => {
+      const betHandlePerformance = result.rows;
+      res.json(betHandlePerformance);
+    })
+    .catch((err) => {
+      console.error('Error executing bet handle performance query:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    });
+});
+
 app.get("/api/player-odds", authenticatePassword, (req, res) => {
   const query = `
     SELECT 
