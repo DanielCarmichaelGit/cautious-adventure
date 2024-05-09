@@ -249,8 +249,8 @@ app.get("/api/top-winning-players", authenticatePassword, (req, res) => {
 
 app.get("/api/clients", authenticatePassword, (req, res) => {
   const query = `
-    SELECT client_id, client_name
-    FROM bet_transactions
+    SELECT DISTINCT client_id, client_name
+    FROM clients
     WHERE client_id IS NOT NULL
     ORDER BY client_name
     LIMIT 100;
@@ -276,7 +276,7 @@ app.get("/api/client-weekly-totals", authenticatePassword, (req, res) => {
 
   const query = `
     SELECT 
-      DATE_TRUNC('week', bet_timestamp) AS week,
+      DATE_TRUNC('week', datetime_utc) AS week,
       SUM(bet_amount) AS total
     FROM bet_transactions
     WHERE client_id = $1
