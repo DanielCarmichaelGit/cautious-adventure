@@ -201,6 +201,30 @@ app.get(
   }
 );
 
+app.get("/api/profitability-by-position", authenticatePassword, (req, res) => {
+  const query = `
+    SELECT 
+      pos_abbr AS position,
+      SUM(book_risk) AS total_handle,
+      SUM(book_profit_gross) AS total_profit,
+      SUM(book_profit_gross) * 100.0 / SUM(book_risk) AS roi
+    FROM bet_transactions
+    GROUP BY pos_abbr
+    ORDER BY roi DESC;
+  `;
+
+  pool
+    .query(query)
+    .then((result) => {
+      const profitabilityByPosition = result.rows;
+      res.json(profitabilityByPosition);
+    })
+    .catch((err) => {
+      console.error("Error executing profitability by position query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+});
+
 app.post("/api/authenticate", (req, res) => {
   console.log(req.body);
   const password = req.body.password;
