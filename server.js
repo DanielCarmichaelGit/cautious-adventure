@@ -255,8 +255,6 @@ app.get("/api/clients", authenticatePassword, (req, res) => {
     ORDER BY client_name;
   `;
 
-  console.log(query)
-
   pool
     .query(query)
     .then((result) => {
@@ -264,7 +262,6 @@ app.get("/api/clients", authenticatePassword, (req, res) => {
         clientId: row.client_id,
         clientName: row.client_name,
       }));
-      console.log(clients)
       res.status(200).json(clients);
     })
     .catch((err) => {
@@ -287,8 +284,6 @@ app.get("/api/client-weekly-totals", authenticatePassword, (req, res) => {
     LIMIT 16;
   `;
 
-  console.log(query)
-
   pool
     .query(query, [clientId])
     .then((result) => {
@@ -296,7 +291,6 @@ app.get("/api/client-weekly-totals", authenticatePassword, (req, res) => {
         week: row.week,
         total: parseFloat(row.total),
       }));
-      console.log(weeklyTotals)
       res.json(weeklyTotals);
     })
     .catch((err) => {
