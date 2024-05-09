@@ -239,7 +239,7 @@ app.get("/api/top-winning-players", authenticatePassword, (req, res) => {
         totalBets: row.total_bets,
         totalProfit: row.total_profit,
       }));
-      res.json(topPlayers);
+      res.status(200).json(topPlayers);
     })
     .catch((err) => {
       console.error("Error executing top winning players query:", err);
@@ -262,7 +262,7 @@ app.get("/api/clients", authenticatePassword, (req, res) => {
         clientId: row.client_id,
         clientName: row.client_name,
       }));
-      res.json(clients);
+      res.status(200).json(clients);
     })
     .catch((err) => {
       console.error("Error executing clients query:", err);
