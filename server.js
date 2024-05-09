@@ -88,11 +88,13 @@ app.get(
 
 app.get("/api/inplay-vs-pregame-odds", authenticatePassword, (req, res) => {
   const query = `
-    SELECT
+    SELECT 
       CASE WHEN is_inplay = 1 THEN 'In-Play' ELSE 'Pre-Game' END AS bet_timing,
-      AVG(bet_price) AS avg_odds
-    FROM bet_transactions
-    GROUP BY bet_timing
+      ROUND(AVG(bet_price), 2) AS avg_odds
+    FROM 
+      bet_transactions
+    GROUP BY 
+      is_inplay
     LIMIT 250;
   `;
 
