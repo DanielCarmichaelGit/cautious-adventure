@@ -247,6 +247,58 @@ app.get("/api/top-winning-players", authenticatePassword, (req, res) => {
     });
 });
 
+app.get("/api/clients", authenticatePassword, (req, res) => {
+  const query = `
+    SELECT client_id, client_name
+    FROM clients
+    WHERE client_id IS NOT NULL
+    ORDER BY client_name;
+  `;
+
+  pool
+    .query(query)
+    .then((result) => {
+      const clients = result.rows.map((row) => ({
+        clientId: row.client_id,
+        clientName: row.client_name,
+      }));
+      res.json(clients);
+    })
+    .catch((err) => {
+      console.error("Error executing clients query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+});
+
+app.get("/api/client-weekly-totals", authenticatePassword, (req, res) => {
+  const { clientId } = req.query;
+
+  const query = `
+    SELECT 
+      DATE_TRUNC('week', bet_timestamp) AS week,
+      SUM(bet_amount) AS total
+    FROM bet_transactions
+    WHERE client_id = $1
+    GROUP BY week
+    ORDER BY week
+    LIMIT 16;
+  `;
+
+  pool
+    .query(query, [clientId])
+    .then((result) => {
+      const weeklyTotals = result.rows.map((row) => ({
+        week: row.week,
+        total: parseFloat(row.total),
+      }));
+      res.json(weeklyTotals);
+    })
+    .catch((err) => {
+      console.error("Error executing client weekly totals query:", err);
+      res.status(500).json({ error: "Internal server error" });
+    });
+});
+
 app.get("/api/bet-type-distribution", authenticatePassword, (req, res) => {
   const query = `
     SELECT 
@@ -302,7 +354,8 @@ app.get("/api/graph-options", authenticatePassword, (req, res) => {
 });
 
 app.get("/api/custom-graph", authenticatePassword, (req, res) => {
-  const { yColumn, xColumns, startDate, startTime, endDate, endTime, groupBy } = req.query;
+  const { yColumn, xColumns, startDate, startTime, endDate, endTime, groupBy } =
+    req.query;
   if (!yColumn || !xColumns) {
     return res.status(400).json({ error: "Missing required parameters" });
   }
@@ -312,7 +365,11 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
 
   let query = `SELECT ${selectColumns
     .map((column, index) => {
-      if (column === "date" || column === "datetime_utc" || column === "accepted_datetime_utc") {
+      if (
+        column === "date" ||
+        column === "datetime_utc" ||
+        column === "accepted_datetime_utc"
+      ) {
         if (groupBy === "hour") {
           return `DATE_TRUNC('hour', "${column}") AS "${column}"`;
         } else if (groupBy === "minute") {
@@ -340,7 +397,12 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
 
   if (groupBy) {
     query += ` GROUP BY ${selectColumns
-      .filter((column) => column === "date" || column === "datetime_utc" || column === "accepted_datetime_utc")
+      .filter(
+        (column) =>
+          column === "date" ||
+          column === "datetime_utc" ||
+          column === "accepted_datetime_utc"
+      )
       .map((column) => `"${column}"`)
       .join(", ")}`;
   }
@@ -366,8 +428,17 @@ app.get("/api/custom-graph", authenticatePassword, (req, res) => {
 });
 
 app.get("/api/custom-graph-paginated", authenticatePassword, (req, res) => {
-  const { yColumn, xColumns, startDate, startTime, endDate, endTime, page = 1, pageSize = 250 } = req.query;
-  
+  const {
+    yColumn,
+    xColumns,
+    startDate,
+    startTime,
+    endDate,
+    endTime,
+    page = 1,
+    pageSize = 250,
+  } = req.query;
+
   if (!yColumn || !xColumns) {
     return res.status(400).json({ error: "Missing required parameters" });
   }
@@ -376,15 +447,17 @@ app.get("/api/custom-graph-paginated", authenticatePassword, (req, res) => {
   const selectColumns = [yColumn, ...xColumnsArray];
 
   let query = `
-    SELECT ${selectColumns.map((column, index) => {
-      if (column.includes("date")) {
-        return `TO_CHAR("${column}", 'YYYY-MM-DD') AS "${column}"`;
-      } else if (column.includes("datetime")) {
-        return `TO_CHAR("${column}", 'YYYY-MM-DD HH24:MI:SS') AS "${column}"`;
-      } else {
-        return `"${column}" AS "${column}"`;
-      }
-    }).join(", ")}
+    SELECT ${selectColumns
+      .map((column, index) => {
+        if (column.includes("date")) {
+          return `TO_CHAR("${column}", 'YYYY-MM-DD') AS "${column}"`;
+        } else if (column.includes("datetime")) {
+          return `TO_CHAR("${column}", 'YYYY-MM-DD HH24:MI:SS') AS "${column}"`;
+        } else {
+          return `"${column}" AS "${column}"`;
+        }
+      })
+      .join(", ")}
     FROM bet_transactions
   `;
   const params = [];
