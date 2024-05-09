@@ -486,16 +486,16 @@ app.get("/api/bet-handle-trends", authenticatePassword, (req, res) => {
   const { startDate, endDate } = req.query;
   const query = `
     SELECT 
-      DATE_TRUNC('day', accepted_datetime_utc) AS date,
-      SUM(book_risk_component) AS bet_handle
+      stat_type,
+      COUNT(*) AS bet_count
     FROM 
       bet_transactions
     WHERE 
       accepted_datetime_utc BETWEEN $1 AND $2
     GROUP BY 
-      DATE_TRUNC('day', accepted_datetime_utc)
+      stat_type
     ORDER BY 
-      date;
+      bet_count DESC;
   `;
   const values = [startDate, endDate];
 
@@ -503,8 +503,8 @@ app.get("/api/bet-handle-trends", authenticatePassword, (req, res) => {
     .query(query, values)
     .then((result) => {
       const betHandleTrends = result.rows.map((row) => ({
-        date: row.date,
-        betHandle: row.bet_handle,
+        statType: row.stat_type,
+        betCount: row.bet_count,
       }));
       res.json(betHandleTrends);
     })
